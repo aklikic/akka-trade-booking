@@ -2,8 +2,6 @@ name: Build and Push Docker Images
 
 on:
   workflow_dispatch:
-  push:
-    branches: [multi-region]  # temporary: remove after testing
 
 jobs:
   build-and-push:
