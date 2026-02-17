@@ -1,0 +1,13 @@
+name: price-service
+service:
+  env:
+  image:  aklikic/price-service:1.0-SNAPSHOT-20260216105241
+  telemetry:
+    tracing:
+      enabled: true
+  resources:
+    autoscaling:
+      minInstances: 3
+      maxInstances: 10
+    runtime:
+      mode: embedded

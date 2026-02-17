@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FX Trading Platform</title>
+    <style>
+        :root {
+            --bg: #0f1923; --card: #1a2733; --border: #2a3a4a;
+            --text: #e0e6ed; --muted: #8899aa; --accent: #4fc3f7;
+            --green: #66bb6a; --red: #ef5350; --orange: #ffa726; --blue: #42a5f5;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'SF Mono', 'Fira Code', monospace; background: var(--bg); color: var(--text); padding: 24px; }
+        h1 { font-size: 18px; color: var(--accent); margin-bottom: 16px; font-weight: 600; }
+        .config { display: flex; gap: 12px; align-items: center; margin-bottom: 20px; font-size: 13px; }
+        .config label { color: var(--muted); }
+        .config input { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 4px; font-family: inherit; font-size: 13px; width: 120px; }
+        .config input.url { width: 240px; }
+        .sub-row { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+        .sub-header { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+        .sub-header input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 4px; font-family: inherit; font-size: 14px; width: 140px; text-transform: uppercase; }
+        button { font-family: inherit; font-size: 13px; padding: 6px 14px; border-radius: 4px; border: none; cursor: pointer; font-weight: 600; transition: opacity 0.15s; }
+        button:hover { opacity: 0.85; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-sub { background: var(--green); color: #000; }
+        .btn-unsub { background: var(--red); color: #fff; }
+        .btn-accept { background: var(--blue); color: #fff; }
+        .btn-rate { background: var(--orange); color: #000; }
+        .rate-controls { display: flex; gap: 6px; align-items: center; margin-left: 12px; }
+        .rate-controls input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 4px; font-family: inherit; font-size: 13px; width: 90px; }
+        .rate-controls label { color: var(--muted); font-size: 12px; }
+        .btn-credit { padding: 6px 14px; font-weight: 600; color: #fff; }
+        .btn-credit-ok { background: var(--green); color: #000; }
+        .btn-credit-fail { background: var(--red); }
+        .credit-controls { display: flex; gap: 8px; align-items: center; }
+        .quota-display { font-size: 13px; margin-top: 8px; }
+        .quota-card { display: flex; gap: 16px; align-items: center; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; margin-top: 6px; }
+        .price { font-size: 16px; font-weight: 700; }
+        .bid { color: var(--green); }
+        .ask { color: var(--red); }
+        .spread { color: var(--muted); font-size: 11px; }
+        .meta { color: var(--muted); font-size: 11px; }
+        .credit { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 3px; }
+        .credit-OK { background: var(--green); color: #000; }
+        .credit-FAIL { background: var(--red); color: #fff; }
+        .credit-UNKNOWN { background: var(--orange); color: #000; }
+        .accept-section { display: flex; gap: 10px; align-items: center; margin-left: auto; }
+        .accept-section select, .accept-section input {
+            background: var(--bg); border: 1px solid var(--border); color: var(--text);
+            padding: 4px 8px; border-radius: 4px; font-family: inherit; font-size: 13px;
+        }
+        .accept-section input { width: 100px; }
+        .trades-section { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-top: 20px; }
+        .trades-section h2 { font-size: 14px; color: var(--accent); margin-bottom: 12px; font-weight: 600; }
+        .trades-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .trades-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+        .trades-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); }
+        .trades-empty { color: var(--muted); font-style: italic; font-size: 13px; }
+        .status-CONFIRMED { color: var(--green); font-weight: 600; }
+        .status-REJECTED { color: var(--red); font-weight: 600; }
+        .status-PENDING, .status-PRE_TRADE_CHECK, .status-HEDGING { color: var(--orange); font-weight: 600; }
+        .no-quota { color: var(--muted); font-style: italic; font-size: 13px; margin-top: 8px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+        .dot-connected { background: var(--green); }
+        .dot-disconnected { background: var(--red); }
+        .sse-status { font-size: 11px; color: var(--muted); margin-left: 8px; }
+    </style>
+</head>
+<body>
+
+<h1>FX Trading Platform</h1>
+
+<div class="config">
+    <label>Client ID:</label>
+    <input type="text" id="clientId" value="client-1">
+    <label>Pricing:</label>
+    <input type="text" id="pricingUrl" class="url" value="">
+    <label>Trading:</label>
+    <input type="text" id="tradingUrl" class="url" value="">
+    <div class="credit-controls">
+        <label>Credit:</label>
+        <button class="btn-credit btn-credit-ok" onclick="app.setCreditStatus('OK')">OK</button>
+        <button class="btn-credit btn-credit-fail" onclick="app.setCreditStatus('FAIL')">FAIL</button>
+        <span id="creditBadge" class="credit credit-UNKNOWN">UNKNOWN</span>
+    </div>
+</div>
+
+<div id="sub-row-0" class="sub-row"></div>
+<div id="sub-row-1" class="sub-row"></div>
+
+<div id="trades-section" class="trades-section">
+    <h2>Trades</h2>
+    <div id="trades-list" class="trades-empty">No trades yet</div>
+</div>
+
+<script>
+    (function() {
+        const origin = window.location.origin;
+        document.getElementById('pricingUrl').value = origin;
+        document.getElementById('tradingUrl').value = origin.replace(/:\d+$/, ':9002');
+
+        const state = [
+            { subscribed: false, ccyPair: 'EURUSD', quota: null },
+            { subscribed: false, ccyPair: 'GBPUSD', quota: null }
+        ];
+
+        // trades keyed by tradeId, plus SSE connection
+        const trades = {}; // { tradeId: { tradeId, ccyPair, side, quantity, status, preTradeResult } }
+        let tradeSse = null;
+
+        // Single shared SSE connection for all quota notifications (per clientId)
+        let quotaSse = null;
+        let currentCreditStatus = 'UNKNOWN';
+
+        function pricingBase() { return document.getElementById('pricingUrl').value.replace(/\/+$/, ''); }
+        function tradingBase() { return document.getElementById('tradingUrl').value.replace(/\/+$/, ''); }
+        function clientId() { return document.getElementById('clientId').value.trim(); }
+        function anySubscribed() { return state.some(s => s.subscribed); }
+
+        function updateCreditBadge(status) {
+            currentCreditStatus = status || 'UNKNOWN';
+            const badge = document.getElementById('creditBadge');
+            badge.textContent = currentCreditStatus;
+            badge.className = 'credit credit-' + currentCreditStatus;
+        }
+
+        async function loadState() {
+            // Close existing SSE connections
+            if (quotaSse) { quotaSse.close(); quotaSse = null; }
+            if (tradeSse) { tradeSse.close(); tradeSse = null; }
+            for (const s of state) {
+                s.subscribed = false;
+                s.quota = null;
+            }
+            for (const k of Object.keys(trades)) delete trades[k];
+
+            try {
+                const res = await fetch(`${pricingBase()}/clients/${clientId()}/state`);
+                if (!res.ok) throw new Error(await res.text());
+                const ws = await res.json();
+
+                updateCreditBadge(ws.creditStatus);
+
+                const subs = ws.subscriptions || [];
+                for (let i = 0; i < state.length && i < subs.length; i++) {
+                    state[i].ccyPair = subs[i];
+                    state[i].subscribed = true;
+                }
+            } catch(e) {
+                updateCreditBadge('UNKNOWN');
+            }
+
+            renderAll();
+            if (anySubscribed()) ensureQuotaSse();
+        }
+
+        // Reload state when clientId changes
+        let clientIdTimer = null;
+        document.getElementById('clientId').addEventListener('input', function() {
+            clearTimeout(clientIdTimer);
+            clientIdTimer = setTimeout(loadState, 500);
+        });
+
+        function render(i) {
+            const s = state[i];
+            const row = document.getElementById('sub-row-' + i);
+            const sseConnected = quotaSse && quotaSse.readyState !== EventSource.CLOSED;
+
+            let html = '<div class="sub-header">';
+            html += `<input type="text" id="ccy-${i}" value="${s.ccyPair}" ${s.subscribed ? 'disabled' : ''} placeholder="e.g. EURUSD">`;
+            if (!s.subscribed) {
+                html += `<button class="btn-sub" onclick="app.subscribe(${i})">Subscribe</button>`;
+            } else {
+                html += `<button class="btn-unsub" onclick="app.unsubscribe(${i})">Unsubscribe</button>`;
+                html += `<div class="rate-controls">`;
+                html += `<label>Bid:</label><input type="number" id="bid-${i}" value="1.1050" step="0.0001">`;
+                html += `<label>Ask:</label><input type="number" id="ask-${i}" value="1.1055" step="0.0001">`;
+                html += `<button class="btn-rate" onclick="app.sendRate(${i})">Send Rate</button>`;
+                html += `</div>`;
+                html += `<span class="sse-status"><span class="status-dot ${sseConnected ? 'dot-connected' : 'dot-disconnected'}"></span>${sseConnected ? 'SSE connected' : 'SSE disconnected'}</span>`;
+            }
+            html += '</div>';
+
+            if (s.subscribed && s.quota) {
+                const q = s.quota;
+                const spread = ((q.ask - q.bid) * 10000).toFixed(1);
+                html += '<div class="quota-card">';
+                html += `<div><div style="font-size:12px;color:var(--muted)">${q.ccyPair} ${q.tenor || ''}</div>`;
+                html += `<span class="price bid">${q.bid.toFixed(5)}</span> / <span class="price ask">${q.ask.toFixed(5)}</span>`;
+                html += `<span class="spread"> (${spread} pips)</span></div>`;
+                html += `<span class="credit credit-${q.creditStatus}">${q.creditStatus}</span>`;
+                const tsMs = typeof q.timestamp === 'number' ? q.timestamp : Number(q.timestamp);
+                const latencyMs = Date.now() - tsMs;
+                html += `<div class="meta">ID: ${q.quotaId.substring(0,8)}... | ${new Date(tsMs).toLocaleTimeString()} | <span style="color:var(--accent)">${latencyMs}ms</span></div>`;
+                html += '<div class="accept-section">';
+                html += `<select id="side-${i}"><option>BUY</option><option>SELL</option></select>`;
+                html += `<input type="number" id="qty-${i}" value="1000000" step="100000" placeholder="Quantity">`;
+                html += `<button class="btn-accept" id="accept-btn-${i}" onclick="app.accept(${i})">Accept</button>`;
+                html += '</div>';
+                html += '</div>';
+            } else if (s.subscribed) {
+                html += '<div class="no-quota">Waiting for quota...</div>';
+            }
+
+            row.innerHTML = html;
+        }
+
+        function renderTrades() {
+            const list = document.getElementById('trades-list');
+            const entries = Object.values(trades);
+            if (entries.length === 0) {
+                list.innerHTML = '<span class="trades-empty">No trades yet</span>';
+                return;
+            }
+            let html = '<table class="trades-table"><tr><th>Trade ID</th><th>Pair</th><th>Side</th><th>Quantity</th><th>Status</th><th>Pre-Trade</th></tr>';
+            for (const t of entries) {
+                html += `<tr>`;
+                html += `<td style="color:var(--muted)">${t.tradeId}</td>`;
+                html += `<td>${t.ccyPair || ''}</td>`;
+                html += `<td>${t.side || ''}</td>`;
+                html += `<td>${t.quantity || ''}</td>`;
+                html += `<td class="status-${t.status}">${t.status}</td>`;
+                html += `<td>${(t.preTradeResult && t.preTradeResult !== 'OK' && t.preTradeResult !== '') ? t.preTradeResult : ''}</td>`;
+                html += `</tr>`;
+            }
+            html += '</table>';
+            list.innerHTML = html;
+        }
+
+        function renderAll() { render(0); render(1); renderTrades(); }
+
+        function ensureQuotaSse() {
+            if (quotaSse && quotaSse.readyState !== EventSource.CLOSED) return;
+            const url = `${pricingBase()}/clients/${clientId()}/quotas`;
+            const es = new EventSource(url);
+            quotaSse = es;
+            es.onmessage = function(ev) {
+                if (!ev.data || ev.data.trim() === '') return;
+                try {
+                    const q = JSON.parse(ev.data);
+                    if (!q.ccyPair) return;
+                    const pair = q.ccyPair.toUpperCase();
+                    for (let i = 0; i < state.length; i++) {
+                        if (state[i].subscribed && state[i].ccyPair.toUpperCase() === pair) {
+                            state[i].quota = q;
+                            render(i);
+                        }
+                    }
+                } catch(e) {}
+            };
+            es.onerror = function() {
+                if (!anySubscribed()) { es.close(); quotaSse = null; }
+                renderAll();
+            };
+            renderAll();
+        }
+
+        function reconnectQuotaSse() {
+            if (quotaSse) { quotaSse.close(); quotaSse = null; }
+            if (anySubscribed()) ensureQuotaSse();
+        }
+
+        function ensureTradeSse() {
+            if (tradeSse && tradeSse.readyState !== EventSource.CLOSED) return;
+            const url = `${tradingBase()}/trades/by-client/${clientId()}/updates`;
+            const es = new EventSource(url);
+            tradeSse = es;
+            es.onmessage = function(ev) {
+                if (!ev.data || ev.data.trim() === '') return;
+                try {
+                    const n = JSON.parse(ev.data);
+                    if (!n.tradeId) return;
+                    trades[n.tradeId] = n;
+                    renderTrades();
+                } catch(e) {}
+            };
+            es.onerror = function() {
+                es.close();
+                tradeSse = null;
+            };
+        }
+
+        window.app = {
+            subscribe: async function(i) {
+                const s = state[i];
+                const ccyInput = document.getElementById('ccy-' + i);
+                s.ccyPair = (ccyInput.value || 'EURUSD').toUpperCase().trim();
+                try {
+                    const res = await fetch(`${pricingBase()}/clients/${clientId()}/subscribe/${s.ccyPair}`, { method: 'POST' });
+                    if (!res.ok) throw new Error(await res.text());
+                    s.subscribed = true;
+                    s.quota = null;
+                    render(i);
+                    reconnectQuotaSse();
+                } catch(e) { alert('Subscribe failed: ' + e.message); }
+            },
+
+            unsubscribe: async function(i) {
+                const s = state[i];
+                try {
+                    const res = await fetch(`${pricingBase()}/clients/${clientId()}/unsubscribe/${s.ccyPair}`, { method: 'POST' });
+                    if (!res.ok) throw new Error(await res.text());
+                    s.subscribed = false;
+                    s.quota = null;
+                    render(i);
+                    reconnectQuotaSse();
+                } catch(e) { alert('Unsubscribe failed: ' + e.message); }
+            },
+
+            setCreditStatus: async function(status) {
+                try {
+                    const res = await fetch(`${pricingBase()}/clients/simulate/credit-update`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ clientId: clientId(), status: status })
+                    });
+                    if (!res.ok) throw new Error(await res.text());
+                    updateCreditBadge(status);
+                } catch(e) { alert('Set credit status failed: ' + e.message); }
+            },
+
+            sendRate: async function(i) {
+                const s = state[i];
+                if (!s.subscribed) return;
+                const bid = parseFloat(document.getElementById('bid-' + i).value) || 1.1050;
+                const ask = parseFloat(document.getElementById('ask-' + i).value) || 1.1055;
+                try {
+                    const res = await fetch(`${pricingBase()}/clients/simulate/rate-update`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ccyPair: s.ccyPair, tenor: 'SPOT', bid, ask, seq: Date.now(), tsMs: Date.now() })
+                    });
+                    if (!res.ok) throw new Error(await res.text());
+                } catch(e) { alert('Send rate failed: ' + e.message); }
+            },
+
+            accept: async function(i) {
+                const s = state[i];
+                if (!s.quota) return;
+
+                const side = document.getElementById('side-' + i).value;
+                const quantity = parseFloat(document.getElementById('qty-' + i).value) || 1000000;
+                const quotaId = s.quota.quotaId;
+                const priceRateId = s.quota.priceRateId;
+                const ccyPair = s.quota.ccyPair || s.ccyPair;
+                const tradeId = clientId() + '_' + quotaId;
+
+                // Add to trades list immediately as PENDING
+                trades[tradeId] = { tradeId, ccyPair, side, quantity, status: 'PENDING', preTradeResult: '' };
+                renderTrades();
+
+                // 1. Connect to view stream SSE for this client
+                ensureTradeSse();
+
+                // 2. Send accept
+                try {
+                    const res = await fetch(`${tradingBase()}/trades/accept`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ quotaId, priceRateId, clientId: clientId(), side, quantity })
+                    });
+                    if (!res.ok) {
+                        const err = await res.text();
+                        trades[tradeId] = { tradeId, ccyPair, side, quantity, status: 'REJECTED', preTradeResult: err };
+                        renderTrades();
+                    }
+                } catch(e) {
+                    trades[tradeId] = { tradeId, ccyPair, side, quantity, status: 'REJECTED', preTradeResult: e.message };
+                    renderTrades();
+                }
+            }
+        };
+
+        loadState();
+    })();
+</script>
+</body>
+</html>
